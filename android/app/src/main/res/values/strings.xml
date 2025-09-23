@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">JournAI</string>
+    <string name="create_entry">Create Entry</string>
+    <string name="chat">Chat</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="organize">Organize</string>
+    <string name="chat_about_entry">Chat about this entry</string>
+    <string name="mood">Mood</string>
+    <string name="tags">Tags</string>
+    <string name="add_photo">Add Photo</string>
+    <string name="add_voice">Add Voice</string>
+    <string name="entry_title">Entry Title</string>
+    <string name="entry_content">What\'s on your mind?</string>
+    <string name="search_entries">Search entries...</string>
+    <string name="no_entries">No entries yet</string>
+    <string name="create_first_entry">Create your first journal entry</string>
+    <string name="chat_placeholder">Ask me anything about your journal...</string>
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="retry">Retry</string>
+    <string name="permission_camera">Camera permission needed to take photos</string>
+    <string name="permission_audio">Microphone permission needed to record voice notes</string>
+    <string name="permission_storage">Storage permission needed to access photos</string>
+    <string name="proxy_base_url">http://192.168.0.195:8787</string>
+</resources>

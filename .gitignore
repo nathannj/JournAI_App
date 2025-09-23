@@ -1,0 +1,95 @@
+# ------------------------------
+# Global / OS / Editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.orig
+*.rej
+.cache/
+.history/
+.vscode/
+.idea/
+*.iml
+
+# ------------------------------
+# Environment files (keep samples)
+# ------------------------------
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# ------------------------------
+# Node / JavaScript (server)
+# ------------------------------
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.pnp.*
+**/coverage/
+**/.nyc_output/
+**/.eslintcache
+**/dist/
+**/build/
+**/tmp/
+**/logs/
+*.tsbuildinfo
+
+# ------------------------------
+# Android / Gradle
+# ------------------------------
+.gradle/
+android/.gradle/
+android/.cxx/
+android/.externalNativeBuild/
+android/local.properties
+android/**/build/
+android/captures/
+
+# CMake/NDK build artifacts
+android/**/.cxx/
+android/**/CMakeFiles/
+android/**/CMakeCache.txt
+android/**/cmake_install.cmake
+android/**/Makefile
+android/**/*.ninja
+android/**/.ninja_log
+android/**/hash_key.txt
+
+# Signing keys (never commit real keys)
+android/key.properties
+android/**/*.keystore
+android/**/*.jks
+*.keystore
+*.jks
+
+# Google/Firebase config (avoid checking in secrets)
+android/**/google-services.json
+android/**/GoogleService-Info.plist
+
+# Android build artifacts
+android/**/*.apk
+android/**/*.aab
+android/**/outputs/
+
+# Keep Gradle wrapper files tracked (explicit allowlist)
+!android/gradle/wrapper/gradle-wrapper.jar
+!android/gradle/wrapper/gradle-wrapper.properties
+!android/gradlew
+!android/gradlew.bat
+
+# ------------------------------
+# Large local model assets (keep placeholder only)
+# ------------------------------
+
+android/app/src/main/assets/models*

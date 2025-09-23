@@ -1,0 +1,253 @@
+### JournAI Proxy Server Test Requests
+### Make sure your proxy server is running on localhost:8787 (default port)
+
+### 1. Health Check - Basic server status
+GET http://localhost:8787/health
+Content-Type: application/json
+
+###
+
+### 2. Embedding Test - Single text input
+POST http://localhost:8787/embed
+Content-Type: application/json
+
+{
+  "input": "This is a test journal entry about my day"
+}
+
+###
+
+### 3. Embedding Test - Multiple text inputs
+POST http://localhost:8787/embed
+Content-Type: application/json
+
+{
+  "input": [
+    "I had a great day at work today",
+    "Feeling stressed about the upcoming deadline",
+    "Had coffee with my friend Sarah"
+  ]
+}
+
+###
+
+### 4. Embedding Test - With blacklist/redaction
+POST http://localhost:8787/embed
+Content-Type: application/json
+
+{
+  "input": "My name is John Doe and my SSN is 123-45-6789. I live at 123 Main St.",
+  "blacklist": [
+    {
+      "pattern": "john doe",
+      "replacement": "[person]"
+    },
+    {
+      "pattern": "123-45-6789",
+      "replacement": "[ssn]"
+    },
+    {
+      "pattern": "123 Main St",
+      "replacement": "[address]"
+    }
+  ]
+}
+
+###
+
+### 5. Chat Test - Simple conversation (Non-streaming)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful journal assistant. Keep responses concise."
+    },
+    {
+      "role": "user",
+      "content": "What should I write about in my journal today?"
+    }
+  ]
+}
+
+###
+
+### 5b. Chat Test - Simple conversation (Streaming - OpenAI Format!)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful journal assistant. Keep responses concise."
+    },
+    {
+      "role": "user",
+      "content": "What should I write about in my journal today?"
+    }
+  ],
+  "stream": true
+}
+
+# Note: Streaming response will be in OpenAI's native format:
+# data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}
+# data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1234567890,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"! How"},"finish_reason":null}]}
+# ...
+# data: [DONE]
+
+###
+
+### 6. Chat Test - With blacklist/redaction (Streaming)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful journal assistant. Keep responses concise."
+    },
+    {
+      "role": "user",
+      "content": "I'm meeting with Dr. Smith tomorrow at 2 PM about my medical condition"
+    }
+  ],
+  "blacklist": [
+    {
+      "pattern": "Dr. Smith",
+      "replacement": "[doctor]"
+    },
+    {
+      "pattern": "medical condition",
+      "replacement": "[health topic]"
+    }
+  ],
+  "stream": true
+}
+
+###
+
+### 7. Chat Test - Multi-turn conversation (Streaming)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful journal assistant focused on reflection and personal growth."
+    },
+    {
+      "role": "user",
+      "content": "I've been feeling anxious lately"
+    },
+    {
+      "role": "assistant",
+      "content": "I understand that feeling anxious can be challenging. What specific situations or thoughts have been contributing to these feelings?"
+    },
+    {
+      "role": "user",
+      "content": "Work has been really stressful and I'm worried about making mistakes"
+    }
+  ],
+  "stream": true
+}
+
+###
+
+### 8. Chat Test - Tool/function calling (Streaming)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a journal assistant that can help users find and analyze their journal entries."
+    },
+    {
+      "role": "user",
+      "content": "Can you help me find entries about work stress from the last week?"
+    }
+  ],
+  "stream": true
+}
+
+###
+
+### 9. Performance Test - Long response (Streaming)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a journal assistant. Provide detailed, thoughtful responses."
+    },
+    {
+      "role": "user",
+      "content": "Write a comprehensive reflection on the benefits of keeping a daily journal, including psychological benefits, memory improvement, stress reduction, and personal growth aspects. Include specific examples and actionable advice."
+    }
+  ],
+  "stream": true
+}
+
+###
+
+### 10. Cache Test - Same query twice (should be faster second time)
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "What are the benefits of meditation?"
+    }
+  ],
+  "useCache": true
+}
+
+###
+
+### 11. Cache Status Check
+GET http://localhost:8787/cache/status
+
+###
+
+### 12. Clear Cache
+DELETE http://localhost:8787/cache/clear
+
+###
+
+### 10. Error Test - Invalid input for embedding
+POST http://localhost:8787/embed
+Content-Type: application/json
+
+{
+  "input": ""
+}
+
+###
+
+### 11. Error Test - Missing required field for chat
+POST http://localhost:8787/chat
+Content-Type: application/json
+
+{
+  "blacklist": [
+    {
+      "pattern": "test"
+    }
+  ]
+}
+
+###
