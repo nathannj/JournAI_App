@@ -11,6 +11,7 @@ export function getConfig() {
   const chatModel = getEnv('OPENAI_CHAT_MODEL', 'gpt-5-nano');
   const rateLimitMax = Number(getEnv('RATE_LIMIT_MAX', 60));
   const rateLimitTimeWindow = getEnv('RATE_LIMIT_TIME_WINDOW', '1 minute');
+  const authToken = getEnv('PROXY_AUTH_TOKEN', null);
 
   if (!openaiApiKey) {
     throw new Error('OPENAI_API_KEY is required');
@@ -21,6 +22,9 @@ export function getConfig() {
     rateLimit: {
       max: rateLimitMax,
       timeWindow: rateLimitTimeWindow,
+    },
+    auth: {
+      token: authToken
     },
     openai: {
       apiKey: openaiApiKey,

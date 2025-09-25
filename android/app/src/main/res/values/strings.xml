@@ -25,4 +25,5 @@
     <string name="permission_audio">Microphone permission needed to record voice notes</string>
     <string name="permission_storage">Storage permission needed to access photos</string>
     <string name="proxy_base_url">http://192.168.0.195:8787</string>
+    <string name="proxy_base_url_prod">https://proxy.example.com</string>
 </resources>

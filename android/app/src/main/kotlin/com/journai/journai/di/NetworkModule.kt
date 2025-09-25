@@ -3,6 +3,7 @@ package com.journai.journai.di
 import android.content.Context
 import com.journai.journai.network.ProxyApi
 import com.journai.journai.network.OrganizeService
+import com.journai.journai.BuildConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,11 +23,19 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         }
         return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val original = chain.request()
+                val req = original.newBuilder()
+                    .header("Authorization", "Bearer " + (System.getProperty("JOURNAI_PROXY_TOKEN") ?: ""))
+                    .build()
+                chain.proceed(req)
+            }
             .addInterceptor(logging)
             .build()
     }
@@ -44,7 +53,11 @@ object NetworkModule {
         client: OkHttpClient,
         moshi: Moshi
     ): Retrofit {
-        val baseUrl = context.getString(com.journai.journai.R.string.proxy_base_url)
+        val baseUrl = if (BuildConfig.DEBUG) {
+            context.getString(com.journai.journai.R.string.proxy_base_url)
+        } else {
+            context.getString(com.journai.journai.R.string.proxy_base_url_prod)
+        }
         return Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)

@@ -54,6 +54,11 @@ export default async function registerChatRoutes(app, config) {
   }, async (req, reply) => {
     const { messages, blacklist = [], stream = false, useCache = true } = req.body;
     const redact = buildRedactor(blacklist);
+    try {
+      req.log.info({ n: messages?.length, stream, useCache }, 'chat: request received');
+      const lastUser = (messages || []).slice().reverse().find(m => m.role === 'user');
+      req.log.info({ lastUserPreview: (lastUser?.content || '').slice(0, 120) }, 'chat: last user message');
+    } catch (_) {}
 
     const redactedMessages = messages.map((m) => ({
       ...m,
@@ -220,6 +225,18 @@ export default async function registerChatRoutes(app, config) {
         reply.header('X-Cache', 'MISS');
       }
 
+      try {
+        reply.header('X-Trace', 'chat-nonstream');
+        reply.header('X-Model', config.openai.chatModel);
+        reply.header('X-Content-Length', String((adapted?.choices?.[0]?.message?.content || '').length));
+        req.log.info({ id: adapted.id, len: (adapted?.choices?.[0]?.message?.content || '').length }, 'chat: response');
+        // TODO: Remove AI response content logging - for debugging only
+        const responseContent = adapted?.choices?.[0]?.message?.content || '';
+        req.log.info({ 
+          id: adapted.id, 
+          content: responseContent.substring(0, 500) + (responseContent.length > 500 ? '...' : '')
+        }, 'chat: response content');
+      } catch (_) {}
       return adapted;
     }
   });

@@ -52,4 +52,7 @@ object DatabaseModule {
     
     @Provides
     fun provideTimelineDao(database: JournAIDatabase): TimelineDao = database.timelineDao()
+
+    @Provides
+    fun provideChatDao(database: JournAIDatabase): ChatDao = database.chatDao()
 }

@@ -23,6 +23,18 @@ const app = Fastify({
   headersTimeout: 66000
 });
 
+// Basic auth via bearer token (per-device token recommended)
+app.addHook('onRequest', async (request, reply) => {
+  const required = config.auth?.token;
+  if (!required) return; // auth disabled
+  const auth = request.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token || token !== required) {
+    reply.code(401);
+    throw new Error('Unauthorized');
+  }
+});
+
 // Enable compression for better performance
 await app.register(compress, { 
   encodings: ['gzip', 'deflate', 'br'] 

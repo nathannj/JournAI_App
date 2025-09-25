@@ -19,9 +19,11 @@ import com.journai.journai.data.converter.Converters
         Entity::class,
         EntryEntity::class,
         TimelineItem::class,
-        EntryFts::class
+        EntryFts::class,
+        com.journai.journai.data.entity.ChatThread::class,
+        com.journai.journai.data.entity.ChatMessageEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -34,6 +36,7 @@ abstract class JournAIDatabase : RoomDatabase() {
     abstract fun entityDao(): EntityDao
     abstract fun entryEntityDao(): EntryEntityDao
     abstract fun timelineDao(): TimelineDao
+    abstract fun chatDao(): ChatDao
     
     companion object {
         @Volatile

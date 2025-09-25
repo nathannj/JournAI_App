@@ -32,4 +32,16 @@ interface EmbeddingDao {
     
     @Query("DELETE FROM embeddings WHERE model = :model")
     suspend fun deleteEmbeddingsByModel(model: String)
+
+    @Query("DELETE FROM embeddings WHERE entryId = :entryId AND model = :model")
+    suspend fun deleteEmbeddingsForEntryAndModel(entryId: String, model: String)
+
+    @Query("SELECT COUNT(*) FROM embeddings WHERE entryId = :entryId AND model = :model")
+    suspend fun countEmbeddingsForEntryAndModel(entryId: String, model: String): Int
+
+    @Query("SELECT * FROM embeddings WHERE model = :model")
+    suspend fun getAllByModel(model: String): List<Embedding>
+
+    @Query("SELECT * FROM embeddings")
+    suspend fun getAll(): List<Embedding>
 }

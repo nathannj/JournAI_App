@@ -58,26 +58,62 @@ An AI‑powered personal journal with local‑first storage, background indexing
 - [ ] "Chat about this entry" button → opens chat with entry context pinned
 
 #### 3) Background Indexer
-- [ ] WorkManager task configured with constraints (charging + unmetered for heavy runs)
-- [ ] Detect new/changed entries; chunk via simple heuristic (e.g., paragraphs ~512 tokens)
-- [ ] For each chunk: request embedding from server proxy; store vector in `Embedding`
-- [ ] Cosine similarity search (brute force for MVP); verify dims and normalization
-- [ ] Basic entity extraction (LLM or lightweight rules) → populate `Entity`/`EntryEntity`
-- [ ] Timeline extraction (date/time expressions) → `TimelineItem`
-- [ ] Backoff, retries, and last-run markers in `EncryptedSharedPreferences`
+- [x] WorkManager task configured with constraints (charging + unmetered for heavy runs)
+- [x] Detect new/changed entries; chunk via simple heuristic (paragraph-based ~2k chars)
+- [x] For each chunk: request embedding from server proxy; store vector in `Embedding`
+- [x] Cosine similarity search (brute force for MVP); verify dims and normalization
+- [x] Basic entity extraction (LLM or lightweight rules) → populate `Entity`/`EntryEntity`
+- [x] Timeline extraction (date/time expressions) → `TimelineItem`
+- [x] Backoff, retries, and last-run markers in `EncryptedSharedPreferences`
+  
+Notes:
+- Embeddings are L2-normalized at index time; searches normalize queries and use dot product.
+- Entity extraction is heuristic for MVP; capped to top ~15 unique items per entry.
+- Timeline extraction captures up to 5 dates per entry to avoid noise.
+- Entity frequency threshold applied (>=2 mentions) to reduce noise.
+- Semantic search filters results with a minimum similarity cutoff (>= 0.25).
 
 #### 4) Chat with Your Journal
 - [x] Chat UI (Compose): input, streaming messages, retry, copy
 - [ ] Chat histories:
-  - [ ] Overall history
+  - [x] Overall history (MVP: threads saved, titles generated on first exchange; sidebar placeholder)
   - [ ] Entry-specific history (when launched from an entry)
-- [ ] Tooling layer exposed to LLM:
-  - [ ] `semanticSearch(query)` → returns top-k chunks + metadata
-  - [ ] `timelineSummary(range?)` → summarize timeline items
-  - [ ] `minePatterns(window?)` → recurring themes/moods/tags
-  - [ ] `weeklyReview()` → pull last 7 days summaries and insights
+- [x] Tooling layer exposed to LLM:
+  - [x] `semanticSearch(query)` → returns top-k chunks + metadata (MVP)
+  - [x] `timelineSummary(range?)` → summarize timeline items (stub)
+  - [x] `minePatterns(window?)` → recurring themes/moods/tags (stub)
+  - [x] `weeklyReview()` → pull last 7 days summaries and insights (stub)
 - [ ] Prompt/response privacy filter runs preflight redaction (see Privacy below)
-- [ ] Server proxy integration for chat completions (no keys in app)
+- [x] Server proxy integration for chat completions (no keys in app)
+  
+Notes:
+- Chats are persisted in Room (`chat_threads`, `chat_messages`); thread title generated after first assistant reply.
+- Sidebar toggle (MVP) shows placeholder; to be replaced with threads list sorted by recency.
+- ChatService injects tool-derived context (last 7 days timeline, semantic search) for recap-style queries such as "past week".
+- ChatService retries transient errors (e.g., 503) with exponential backoff to avoid first-call failures.
+- System prompt instructs the model to use provided context and not claim lack of access.
+- Agentic planner (app-side): model suggests which local tools to run (JSON plan), app executes tools and injects results before final response.
+  - Multi-hop: planner may iterate up to 2 times, proposing additional tool calls based on newly gathered context; entries are deduped.
+  
+Logging:
+- App: ChatService, AgentOrchestrator, and ChatTools log query, tool planning, context size, retries, and response length.
+- Server: `/chat` logs request metadata, last user preview, and response length; adds `X-Trace`, `X-Model`, and `X-Content-Length` headers for tracing.
+  
+Fallbacks:
+- If embeddings are not available yet, semantic search falls back to lexical search over entries.
+- If no timeline items exist, weekly summary falls back to recent entries.
+- Tool context is placed before the user message to improve grounding.
+  
+Date-aware tool usage:
+- DateRangeParser extracts ranges (e.g., "2024", "last year", "past 30 days").
+- Chat injects a focus range system message and uses range-based timeline summaries.
+ - entriesSummaryRange lists entries within the range when timeline is empty.
+  
+Semantic search behavior:
+- Vectors are normalized; dot product used for speed.
+- If no vectors for the current model exist, search falls back to any vectors available.
+- Low similarity threshold (>= 0.05) to favor recall for chat context.
+- Lexical fallback used when vector search returns no results.
 
 #### 5) Privacy & Security (MVP)
 - [ ] All data local; no analytics/telemetry
@@ -95,8 +131,28 @@ An AI‑powered personal journal with local‑first storage, background indexing
   - [x] `POST /embed` → wraps OpenAI `text-embedding-3-small`
   - [x] `POST /chat` → wraps chat completions; supports tool calls
 - [x] Apply the same blacklist redaction server-side defensively (idempotent)
-- [ ] Rate limiting and basic auth/token per device
-- [ ] Configurable base URL in app (dev/prod)
+- [x] Rate limiting and basic auth/token per device (Bearer token)
+- [x] Configurable base URL in app (dev/prod)
+
+Hardening for production (to implement):
+- [ ] Device attestation & registration
+  - [ ] Server: `/register` endpoint verifies Google Play Integrity (or SafetyNet) for package name + signing cert digest
+  - [ ] Server: issues short‑lived JWT (aud=prod, sub=deviceId, exp≈7d) after successful attestation
+  - [ ] Server: stores device record, supports revocation
+  - [ ] App: requests attestation, calls `/register`, stores token in `EncryptedSharedPreferences`
+- [ ] Proof of possession (DPoP)
+  - [ ] App: generate device keypair (Android Keystore; StrongBox if available); send public key at registration
+  - [ ] App: sign nonce per request (header) with private key
+  - [ ] Server: verify DPoP signature against stored public key
+- [ ] Per-device rate limits & abuse controls
+  - [ ] Rate limit by deviceId from JWT; stricter burst/window
+  - [ ] Admin: revoke device tokens and view device activity
+- [ ] TLS and pinning
+  - [ ] Enforce HTTPS/TLS 1.2+ on proxy; HSTS in fronting CDN
+  - [ ] App: certificate pinning in OkHttp
+- [ ] Token refresh and retry
+  - [ ] App: on 401, refresh by re‑running attestation and `/register`
+  - [ ] Server: rotate signing keys, support key ID (kid)
 
 #### 7) Offline Embeddings (v2)
 - [ ] Integrate ONNX Runtime Mobile

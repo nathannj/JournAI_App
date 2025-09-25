@@ -9,6 +9,9 @@ interface ProxyApi {
 
     @POST("/transcribe")
     suspend fun transcribe(@Body body: TranscribeRequest): TranscribeResponse
+
+    @POST("/embed")
+    suspend fun embed(@Body body: EmbedRequest): EmbedResponse
 }
 
 data class ChatMessage(
@@ -56,6 +59,23 @@ data class TranscribeRequest(
 
 data class TranscribeResponse(
     val text: String
+)
+
+// Embeddings
+data class EmbedRequest(
+    val input: List<String>,
+    val blacklist: List<BlacklistItem>? = null
+)
+
+data class EmbedItem(
+    val embedding: List<Double>,
+    val index: Int,
+    val `object`: String? = null
+)
+
+data class EmbedResponse(
+    val model: String,
+    val data: List<EmbedItem>
 )
 
 
