@@ -30,7 +30,8 @@ import java.io.ByteArrayOutputStream
 @Singleton
 class SpeechRecognitionManager @Inject constructor(
     private val api: ProxyApi,
-    private val appContext: Context
+    private val appContext: Context,
+    private val securePrefs: com.journai.journai.auth.SecurePrefs
 ) {
     
     private var isRecording = false
@@ -93,9 +94,11 @@ class SpeechRecognitionManager @Inject constructor(
         }
         
         try {
-            // Initialize native model only if offline at start; otherwise defer
+            // Initialize native model only if offline at start OR if user forces local mode
             _recognitionState.value = _recognitionState.value.copy(error = null)
-            if (!hasNetwork(appContext)) {
+            val forceLocal = runCatching { securePrefs.getBoolean("use_local_transcription", true) }.getOrDefault(true)
+            val shouldUseLocal = forceLocal || !hasNetwork(appContext)
+            if (shouldUseLocal) {
                 val modelFile = ensureModelFromAssets(activity)
                 val ok = WhisperBridge.nativeInit(modelFile.absolutePath)
                 if (!ok) {
@@ -156,6 +159,10 @@ class SpeechRecognitionManager @Inject constructor(
     }
     
     fun stopListening() {
+        // Prevent re-entrancy: if we're already transcribing, do nothing.
+        if (isTranscribing) {
+            return
+        }
         manualStopRequested = true
         audioRecord?.let {
             try { it.stop() } catch (_: Throwable) {}
@@ -178,8 +185,14 @@ class SpeechRecognitionManager @Inject constructor(
         )
         processingRunnable?.let { mainHandler.removeCallbacks(it) }
         processingRunnable = null
+        // Ensure only one processing job runs at a time for this recording
+        if (processingInFlight) {
+            return
+        }
+        processingInFlight = true
         processingExecutor.execute {
-            val useCloud = hasNetwork(appContext)
+            val forceLocal = runCatching { securePrefs.getBoolean("use_local_transcription", true) }.getOrDefault(true)
+            val useCloud = !forceLocal && hasNetwork(appContext)
             var finalText = ""
             try {
                 if (useCloud) {
@@ -279,6 +292,7 @@ class SpeechRecognitionManager @Inject constructor(
                     isNativeReady = false
                 }
                 pcmBuffer = null
+                processingInFlight = false
             }
         }
     }

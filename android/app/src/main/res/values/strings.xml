@@ -26,4 +26,12 @@
     <string name="permission_storage">Storage permission needed to access photos</string>
     <string name="proxy_base_url">http://192.168.0.195:8787</string>
     <string name="proxy_base_url_prod">https://proxy.example.com</string>
+    <string name="proxy_prod_host">proxy.example.com</string>
+    <!-- Replace with real cert pin: sha256/<base64-of-pubkey> -->
+    <string name="proxy_prod_pin">sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</string>
+    <string name="settings">Settings</string>
+    <string name="transcription">Transcription</string>
+    <string name="local_transcription">Local Transcription</string>
+    <string name="organization_preferences">Organization Preferences</string>
+    <string name="blacklist_privacy">Blacklist &amp; Privacy</string>
 </resources>

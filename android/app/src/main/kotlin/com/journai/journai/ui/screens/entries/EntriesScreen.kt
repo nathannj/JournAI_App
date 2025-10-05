@@ -4,7 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mood
+import androidx.compose.material.icons.filled.Add
+// mood icon import removed
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import com.journai.journai.R
 import com.journai.journai.data.entity.Entry
 import kotlinx.datetime.TimeZone
@@ -23,16 +25,27 @@ import kotlinx.datetime.toLocalDateTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntriesScreen(
+    navController: NavController,
     viewModel: EntriesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by remember { mutableStateOf("") }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
+    Box(
+        modifier = Modifier.fillMaxSize()
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+        // App header
+        Text(
+            text = "JournAI",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(12.dp))
         // Search bar
         OutlinedTextField(
             value = searchQuery,
@@ -48,25 +61,7 @@ fun EntriesScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Mood filter chips
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                onClick = { viewModel.filterByMood(null) },
-                label = { Text("All") },
-                selected = uiState.selectedMood == null
-            )
-            (1..5).forEach { mood ->
-                FilterChip(
-                    onClick = { viewModel.filterByMood(mood) },
-                    label = { Text(mood.toString()) },
-                    selected = uiState.selectedMood == mood,
-                    leadingIcon = { Icon(Icons.Default.Mood, contentDescription = null) }
-                )
-            }
-        }
+        // Mood filters removed
         
         Spacer(modifier = Modifier.height(16.dp))
         
@@ -97,7 +92,7 @@ fun EntriesScreen(
                         text = if (uiState.entries.isEmpty()) {
                             stringResource(R.string.create_first_entry)
                         } else {
-                            "Try adjusting your search or mood filter"
+                            "Try adjusting your search"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -111,10 +106,25 @@ fun EntriesScreen(
                 items(uiState.filteredEntries) { entry ->
                     EntryCard(
                         entry = entry,
-                        onClick = { /* TODO: Navigate to entry detail */ }
+                        onClick = {
+                            val millis = entry.createdAt.toEpochMilliseconds()
+                            navController.navigate("create?dateMillis=$millis")
+                        }
                     )
                 }
             }
+        }
+        }
+        
+        // Floating Action Button for Create Entry
+        FloatingActionButton(
+            onClick = { navController.navigate("create") },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Create Entry")
         }
     }
 }
@@ -126,28 +136,23 @@ fun EntryCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Title and date
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Text(
-                    text = formatDate(entry.createdAt),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = formatTime(entry.createdAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Date only
+            Text(
+                text = formatDate(entry.createdAt),
+                style = MaterialTheme.typography.titleMedium
+            )
             
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -161,22 +166,7 @@ fun EntryCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Mood indicator
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Mood,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Mood: ${entry.mood}/5",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Mood indicator removed
         }
     }
 }

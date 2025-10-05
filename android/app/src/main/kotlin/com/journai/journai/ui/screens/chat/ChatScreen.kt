@@ -1,17 +1,22 @@
 package com.journai.journai.ui.screens.chat
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.journai.journai.R
@@ -22,7 +27,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showSidebar by remember { mutableStateOf(false) }
+    // Sidebar visibility is driven by ViewModel state
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     
@@ -32,108 +37,129 @@ fun ChatScreen(
         TopAppBar(
             title = { Text("Chat") },
             navigationIcon = {
-                IconButton(onClick = { showSidebar = !showSidebar; viewModel.setSidebarVisible(showSidebar) }) {
+                IconButton(onClick = { viewModel.setSidebarVisible(!uiState.showSidebar) }) {
                     Icon(Icons.Default.Menu, contentDescription = "Chats")
                 }
             }
         )
 
-        if (uiState.showSidebar) {
-            ChatsSidebar(viewModel, uiState)
-        }
-        // Messages list
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (uiState.messages.isEmpty()) {
-                item {
+        // Main content with optional sidebar overlay
+        Box(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Messages list
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (uiState.messages.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "👋 Hi! I'm your AI journal companion.",
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Ask me about your entries, patterns in your mood, or anything else!",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    items(uiState.messages) { message ->
+                        ChatMessageItem(message = message)
+                    }
+                }
+
+                // Input area
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        OutlinedTextField(
+                            value = messageText,
+                            onValueChange = { messageText = it },
+                            placeholder = { Text(stringResource(R.string.chat_placeholder)) },
+                            modifier = Modifier.weight(1f),
+                            maxLines = 3
+                        )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        FloatingActionButton(
+                            onClick = {
+                                if (messageText.isNotBlank()) {
+                                    viewModel.sendMessage(messageText)
+                                    messageText = ""
+                                }
+                            },
+                            modifier = Modifier.size(48.dp),
+                        ) {
+                            if (uiState.isGeneratingResponse) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(Icons.Default.Send, contentDescription = "Send")
+                            }
+                        }
+                    }
+                }
+
+                // Error message
+                uiState.error?.let { error ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.padding(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = MaterialTheme.colorScheme.errorContainer
                         )
                     ) {
-                        Column(
+                        Text(
+                            text = error,
                             modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "👋 Hi! I'm your AI journal companion.",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Ask me about your entries, patterns in your mood, or anything else!",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                    }
-                }
-            }
-            
-            items(uiState.messages) { message ->
-                ChatMessageItem(message = message)
-            }
-        }
-        
-        // Input area
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                OutlinedTextField(
-                    value = messageText,
-                    onValueChange = { messageText = it },
-                    placeholder = { Text(stringResource(R.string.chat_placeholder)) },
-                    modifier = Modifier.weight(1f),
-                    maxLines = 3
-                )
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                FloatingActionButton(
-                    onClick = {
-                        if (messageText.isNotBlank()) {
-                            viewModel.sendMessage(messageText)
-                            messageText = ""
-                        }
-                    },
-                    modifier = Modifier.size(48.dp),
-                ) {
-                    if (uiState.isGeneratingResponse) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
-                    } else {
-                        Icon(Icons.Default.Send, contentDescription = "Send")
                     }
                 }
             }
-        }
-        
-        // Error message
-        uiState.error?.let { error ->
-            Card(
-                modifier = Modifier.padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+
+            if (uiState.showSidebar) {
+                // Scrim
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.2f))
+                        .clickable { viewModel.setSidebarVisible(false) }
                 )
-            ) {
-                Text(
-                    text = error,
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                // Sidebar panel
+                ChatsSidebar(
+                    viewModel = viewModel,
+                    uiState = uiState,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .width(320.dp)
+                        .fillMaxHeight()
                 )
             }
         }
@@ -168,11 +194,12 @@ fun ChatMessageItem(message: ChatMessage) {
 }
 
 @Composable
-fun ChatsSidebar(viewModel: ChatViewModel, uiState: ChatUiState) {
+fun ChatsSidebar(viewModel: ChatViewModel, uiState: ChatUiState, modifier: Modifier = Modifier) {
     Surface(
         tonalElevation = 4.dp,
         shadowElevation = 8.dp,
-        modifier = Modifier.fillMaxSize()
+        modifier = modifier,
+        shape = RoundedCornerShape(topEnd = 16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -199,7 +226,24 @@ fun ChatsSidebar(viewModel: ChatViewModel, uiState: ChatUiState) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.threads) { t ->
-                    ElevatedCard {
+                    var showConfirm by remember { mutableStateOf(false) }
+                    if (showConfirm) {
+                        AlertDialog(
+                            onDismissRequest = { showConfirm = false },
+                            confirmButton = {
+                                TextButton(onClick = { viewModel.confirmDeleteThread(); showConfirm = false }) { Text("Delete") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
+                            },
+                            title = { Text("Delete chat?") },
+                            text = { Text("This action cannot be undone.") }
+                        )
+                    }
+                    ElevatedCard(onClick = {
+                        viewModel.selectThread(t.id)
+                        viewModel.setSidebarVisible(false)
+                    }) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -208,26 +252,12 @@ fun ChatsSidebar(viewModel: ChatViewModel, uiState: ChatUiState) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(t.title)
-                                Text(
-                                    java.text.DateFormat.getDateTimeInstance().format(java.util.Date(t.updatedAt)),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
-                            var showConfirm by remember { mutableStateOf(false) }
-                            if (showConfirm) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Confirm?", style = MaterialTheme.typography.bodySmall)
-                                    Spacer(Modifier.width(8.dp))
-                                    TextButton(onClick = { viewModel.confirmDeleteThread(); showConfirm = false }) { Text("Delete") }
-                                    TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
-                                }
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(onClick = { viewModel.selectThread(t.id) }) { Text("Open") }
-                                    Spacer(Modifier.width(8.dp))
-                                    TextButton(onClick = { viewModel.requestDeleteThread(t.id); showConfirm = true }) { Text("Trash") }
-                                }
+                            IconButton(onClick = { viewModel.requestDeleteThread(t.id); showConfirm = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete"
+                                )
                             }
                         }
                     }

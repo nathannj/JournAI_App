@@ -19,6 +19,8 @@ android {
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        buildConfigField("boolean", "DEBUG", "true")
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -60,6 +62,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
@@ -85,6 +88,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
 
@@ -133,6 +137,7 @@ dependencies {
     // Security
     implementation(libs.androidx.security.crypto)
     implementation(libs.sqlcipher.android)
+    implementation(libs.play.integrity)
 
     // Core Android
     implementation(libs.androidx.core.ktx)

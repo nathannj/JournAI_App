@@ -35,7 +35,7 @@ class EntryRepository @Inject constructor(
     fun getEntriesBetween(startDate: Instant, endDate: Instant): Flow<List<Entry>> = 
         entryDao.getEntriesBetween(startDate, endDate)
     
-    fun getEntriesByMood(mood: Int): Flow<List<Entry>> = entryDao.getEntriesByMood(mood)
+    // mood filtering removed
     
     fun searchEntries(query: String): Flow<List<Entry>> = entryDao.searchEntries(query)
     

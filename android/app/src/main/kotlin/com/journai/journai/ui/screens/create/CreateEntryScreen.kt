@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -36,11 +35,22 @@ import kotlinx.datetime.LocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateEntryScreen(
-    viewModel: CreateEntryViewModel = hiltViewModel()
+    viewModel: CreateEntryViewModel = hiltViewModel(),
+    initialDateMillis: Long? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    
+    // If an initial date was provided (navigated from an entry), load that date once
+    LaunchedEffect(initialDateMillis) {
+        if (initialDateMillis != null && initialDateMillis > 0L) {
+            val selectedLocalDate = java.time.Instant.ofEpochMilli(initialDateMillis)
+                .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+            val ld = kotlinx.datetime.LocalDate(selectedLocalDate.year, selectedLocalDate.monthValue, selectedLocalDate.dayOfMonth)
+            viewModel.selectDate(ld)
+        }
+    }
     
     val selectedDate = uiState.selectedDate.toLocalDateTime(TimeZone.currentSystemDefault()).date
     val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
@@ -110,12 +120,18 @@ fun CreateEntryScreen(
         
         // Date picker dialog
         if (showDatePicker) {
-            Dialog(onDismissRequest = { showDatePicker = false }) {
+            Dialog(
+                onDismissRequest = { showDatePicker = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
                 Card(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 16.dp)
+                        .widthIn(max = 600.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp)
                     ) {
                         Text(
                             text = "Select Date",
@@ -127,7 +143,11 @@ fun CreateEntryScreen(
                             initialSelectedDateMillis = uiState.selectedDate.toEpochMilliseconds()
                         )
                         
-                        DatePicker(state = datePickerState)
+                        DatePicker(
+                            state = datePickerState,
+                            showModeToggle = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -313,42 +333,7 @@ fun CreateEntryScreen(
         
         // Removed separate recording indicator (now inline with Stop button)
         
-        // Mood picker
-        Card {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Mood, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "How are you feeling today?",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    (1..5).forEach { mood ->
-                        FilterChip(
-                            onClick = { viewModel.updateMood(mood) },
-                            label = { Text(mood.toString()) },
-                            selected = uiState.mood == mood,
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Mood,
-                                    contentDescription = "Mood $mood"
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        }
+        // Mood picker removed
         
         // Save button
         Button(

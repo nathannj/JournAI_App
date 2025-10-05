@@ -25,7 +25,7 @@ object DatabaseModule {
             JournAIDatabase::class.java,
             "journai_database"
         )
-        .fallbackToDestructiveMigration() // For MVP - replace with proper migrations later
+        .addMigrations(JournAIDatabase.MIGRATION_3_4)
         .build()
     }
     

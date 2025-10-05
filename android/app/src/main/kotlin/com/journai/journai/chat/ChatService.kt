@@ -16,7 +16,8 @@ import javax.inject.Singleton
 class ChatService @Inject constructor(
     private val api: ProxyApi,
     private val tools: ChatTools,
-    private val agent: AgentOrchestrator
+    private val agent: AgentOrchestrator,
+    private val securePrefs: com.journai.journai.auth.SecurePrefs
 ) {
     suspend fun complete(messages: List<ChatMessage>, useCache: Boolean = true): String = withContext(Dispatchers.IO) {
         // Build tool context via agentic planner; falls back to built-in heuristics
@@ -58,10 +59,15 @@ class ChatService @Inject constructor(
         var lastError: Throwable? = null
         while (attempt < 3) {
             try {
+                val termsJson = runCatching { securePrefs.getString("blacklist_terms", "[]") }.getOrDefault("[]")
+                val terms = try {
+                    kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString<List<com.journai.journai.ui.screens.settings.BlacklistTerm>>(termsJson)
+                } catch (_: Throwable) { emptyList<com.journai.journai.ui.screens.settings.BlacklistTerm>() }
+                val blacklist = terms.map { com.journai.journai.network.BlacklistItem(pattern = it.term, replacement = it.replacement.ifBlank { null }) }
                 val resp = api.chat(
                     ChatRequest(
                         messages = enriched,
-                        blacklist = null,
+                        blacklist = if (blacklist.isEmpty()) null else blacklist,
                         stream = false,
                         useCache = useCache
                     )

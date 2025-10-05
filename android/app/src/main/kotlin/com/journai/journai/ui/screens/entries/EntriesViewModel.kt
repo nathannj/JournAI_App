@@ -55,18 +55,7 @@ class EntriesViewModel @Inject constructor(
         )
     }
     
-    fun filterByMood(mood: Int?) {
-        _uiState.value = _uiState.value.copy(selectedMood = mood)
-        
-        val baseEntries = _uiState.value.entries
-        val filtered = if (mood != null) {
-            baseEntries.filter { it.mood == mood }
-        } else {
-            baseEntries
-        }
-        
-        _uiState.value = _uiState.value.copy(filteredEntries = filtered)
-    }
+    // mood-based filtering removed
 }
 
 data class EntriesUiState(

@@ -5,12 +5,19 @@ import com.squareup.moshi.Moshi
 
 class OrganizeService(
     private val api: ProxyApi,
-    private val moshi: Moshi
+    private val moshi: Moshi,
+    private val securePrefs: com.journai.journai.auth.SecurePrefs
 ) {
     suspend fun organizeText(rawText: String): String {
+        val instruction = runCatching { securePrefs.getString("org_pref_instruction", "") }.getOrDefault("")
+        val prefsGuidance = if (instruction.isNotBlank()) {
+            "\n\nUser organize instruction (follow exactly; this is the user's explicit request):\n" + instruction.trim()
+        } else {
+            ""
+        }
         val system = ChatMessage(
             role = "system",
-            content = ORGANIZE_SYSTEM_PROMPT
+            content = ORGANIZE_SYSTEM_PROMPT + prefsGuidance
         )
         val user = ChatMessage(
             role = "user",

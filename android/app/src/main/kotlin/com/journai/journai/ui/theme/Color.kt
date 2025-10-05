@@ -2,10 +2,10 @@ package com.journai.journai.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
-
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Brand palette (light theme source of truth)
+val EggshellWhite = Color(0xFFF9F9F6) // Background (Canvas)
+val MutedSage = Color(0xFF4D6D57)     // Primary Text
+val MistyMoss = Color(0xFF7D9F80)     // Secondary Text
+val PaleSage = Color(0xFFD9E4DB)      // Borders & Dividers
+val PastelFern = Color(0xFFA6CBB2)    // Accent & Interactive (fills)
+val SoftMint = Color(0xFFC9F2D0)      // Highlight (AI / special states)

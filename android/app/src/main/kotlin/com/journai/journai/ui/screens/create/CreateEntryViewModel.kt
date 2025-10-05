@@ -42,10 +42,15 @@ class CreateEntryViewModel @Inject constructor(
                 android.util.Log.d("SpeechDebug", "finalText received: '$finalText'")
                 if (finalText.isNotEmpty()) {
                     val current = _uiState.value.content
+                    // Idempotency guard: if current already ends with finalText (or overlap-adjusted), skip
                     val toAppend = removeOverlapSuffixPrefix(current, finalText)
-                    val newContent = if (current.isBlank()) toAppend else "$current $toAppend"
-                    android.util.Log.d("SpeechDebug", "current: '$current', toAppend: '$toAppend', newContent: '$newContent'")
-                    _uiState.value = _uiState.value.copy(content = newContent)
+                    if (toAppend.isNotBlank()) {
+                        val newContent = if (current.isBlank()) toAppend else "$current $toAppend"
+                        android.util.Log.d("SpeechDebug", "current: '$current', toAppend: '$toAppend', newContent: '$newContent'")
+                        _uiState.value = _uiState.value.copy(content = newContent)
+                    } else {
+                        android.util.Log.d("SpeechDebug", "Skipping append; toAppend blank after overlap removal")
+                    }
                 }
             }
         }
@@ -102,7 +107,6 @@ class CreateEntryViewModel @Inject constructor(
                         selectedDate = date,
                         entryDate = existingEntry.createdAt, // Use the actual entry's date
                         content = existingEntry.richBody,
-                        mood = existingEntry.mood,
                         isEditing = true,
                         existingEntryId = existingEntry.id,
                         isLoading = false
@@ -112,7 +116,6 @@ class CreateEntryViewModel @Inject constructor(
                         selectedDate = date,
                         entryDate = date, // For new entries, use the selected date
                         content = "",
-                        mood = 3,
                         isEditing = false,
                         existingEntryId = null,
                         isLoading = false
@@ -143,9 +146,7 @@ class CreateEntryViewModel @Inject constructor(
         )
     }
     
-    fun updateMood(mood: Int) {
-        _uiState.value = _uiState.value.copy(mood = mood)
-    }
+    // mood removed
     
     fun saveEntry() {
         viewModelScope.launch {
@@ -163,7 +164,6 @@ class CreateEntryViewModel @Inject constructor(
                         createdAt = entryDate, // Use the entry's actual date
                         editedAt = now,
                         richBody = _uiState.value.content,
-                        mood = _uiState.value.mood,
                         isArchived = false
                     )
                 } else {
@@ -173,7 +173,6 @@ class CreateEntryViewModel @Inject constructor(
                         createdAt = entryDate, // Use the entry date
                         editedAt = now,
                         richBody = _uiState.value.content,
-                        mood = _uiState.value.mood,
                         isArchived = false
                     )
                 }
@@ -338,7 +337,6 @@ data class CreateEntryUiState(
     val content: String = "",
     val partialPreview: String = "",
     val audioLevel: Float = 0f,
-    val mood: Int = 3,
     val isSaving: Boolean = false,
     val isLoading: Boolean = false,
     val isEditing: Boolean = false,

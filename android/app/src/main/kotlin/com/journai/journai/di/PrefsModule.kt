@@ -2,8 +2,6 @@ package com.journai.journai.di
 
 import android.content.Context
 import com.journai.journai.auth.SecurePrefs
-import com.journai.journai.network.ProxyApi
-import com.journai.journai.ui.screens.create.SpeechRecognitionManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,14 +11,15 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object SpeechModule {
-    
+object PrefsModule {
+
     @Provides
     @Singleton
-    fun provideSpeechRecognitionManager(
-        api: ProxyApi,
+    fun provideSecurePrefs(
         @ApplicationContext context: Context
-    ): SpeechRecognitionManager {
-        return SpeechRecognitionManager(api, context, SecurePrefs(context))
-    }
+    ): SecurePrefs = SecurePrefs(context)
 }
+
+
+
+

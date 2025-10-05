@@ -11,6 +11,5 @@ data class Entry(
     val createdAt: Instant,
     val editedAt: Instant,
     val richBody: String,
-    val mood: Int, // 1-5 scale
     val isArchived: Boolean = false
 )

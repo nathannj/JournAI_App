@@ -12,6 +12,10 @@ export function getConfig() {
   const rateLimitMax = Number(getEnv('RATE_LIMIT_MAX', 60));
   const rateLimitTimeWindow = getEnv('RATE_LIMIT_TIME_WINDOW', '1 minute');
   const authToken = getEnv('PROXY_AUTH_TOKEN', null);
+  const devAllowNoAuth = String(getEnv('DEV_ALLOW_NO_AUTH', 'false')).toLowerCase() === 'true';
+  const integrityRequired = String(getEnv('INTEGRITY_REQUIRED', 'false')).toLowerCase() === 'true';
+  const playPackageName = getEnv('PLAY_PACKAGE_NAME', null);
+  const playCertDigest = getEnv('PLAY_CERT_DIGEST', null);
 
   if (!openaiApiKey) {
     throw new Error('OPENAI_API_KEY is required');
@@ -24,7 +28,13 @@ export function getConfig() {
       timeWindow: rateLimitTimeWindow,
     },
     auth: {
-      token: authToken
+      token: authToken,
+      devAllowNoAuth
+    },
+    integrity: {
+      required: integrityRequired,
+      packageName: playPackageName,
+      certDigest: playCertDigest
     },
     openai: {
       apiKey: openaiApiKey,

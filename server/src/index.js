@@ -2,6 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import { jwtVerify, importJWK } from 'jose';
 import staticFiles from '@fastify/static';
 import compress from '@fastify/compress';
 import { fileURLToPath } from 'url';
@@ -10,6 +11,8 @@ import { getConfig } from './config.js';
 import registerEmbedRoutes from './routes/embed.js';
 import registerChatRoutes from './routes/chat.js';
 import registerTranscribeRoutes from './routes/transcribe.js';
+import registerRegisterRoute from './routes/register.js';
+import registerDeviceAdminRoutes from './routes/devices.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -25,13 +28,18 @@ const app = Fastify({
 
 // Basic auth via bearer token (per-device token recommended)
 app.addHook('onRequest', async (request, reply) => {
-  const required = config.auth?.token;
-  if (!required) return; // auth disabled
-  const auth = request.headers['authorization'] || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token || token !== required) {
-    reply.code(401);
-    throw new Error('Unauthorized');
+  const open = request.url.startsWith('/health') || request.url.startsWith('/register') || request.url.startsWith('/cache')
+  if (open) return
+  if (config.auth?.devAllowNoAuth) return
+  const auth = request.headers['authorization'] || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+  if (!token) { reply.code(401); throw new Error('Missing token') }
+  const secret = new TextEncoder().encode(process.env.JWT_SIGNING_SECRET || 'dev-secret-change')
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    request.deviceId = payload.deviceId
+  } catch (e) {
+    reply.code(401); throw new Error('Invalid token')
   }
 });
 
@@ -49,6 +57,7 @@ await app.register(cors, {
 await app.register(rateLimit, {
   max: config.rateLimit.max,
   timeWindow: config.rateLimit.timeWindow,
+  keyGenerator: async (req) => req.deviceId || req.ip
 });
 
 // Serve static files (including the chat test HTML)
@@ -82,6 +91,9 @@ app.delete('/cache/clear', async (request, reply) => {
   return { message: 'Cache cleared' };
 });
 
+const state = {};
+await registerRegisterRoute(app, config, state);
+await registerDeviceAdminRoutes(app, config, state);
 await registerEmbedRoutes(app, config);
 await registerChatRoutes(app, config);
 await registerTranscribeRoutes(app, config);

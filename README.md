@@ -20,6 +20,90 @@ An AI‑powered personal journal with local‑first storage, background indexing
 
 ---
 
+### Branding & Color System
+
+This app adopts a calm, readable palette that can scale to dark mode via semantic tokens. The colors below are the single source of truth for the MVP; implementation will expose them as Compose semantic tokens and map them onto Material 3 color roles.
+
+- **Palette**
+  - **Background (Canvas)**: Eggshell White `#F9F9F6`
+  - **Primary Text**: Muted Sage `#4D6D57`
+  - **Secondary Text**: Misty Moss `#7D9F80`
+  - **Borders & Dividers**: Pale Sage `#D9E4DB`
+  - **Accent & Interactive (fills)**: Pastel Fern `#A6CBB2`
+  - **Highlight (AI / special states)**: Soft Mint `#C9F2D0`
+
+- **Semantic tokens (Compose)**
+  - `canvas = #F9F9F6`
+  - `textPrimary = #4D6D57`
+  - `textSecondary = #7D9F80`
+  - `border = #D9E4DB`
+  - `accent = #A6CBB2`
+  - `highlight = #C9F2D0`
+
+- **Material 3 mapping (light)**
+  - `background`/`surface` → `canvas`
+  - `onSurface` → `textPrimary`
+  - `onSurfaceVariant` → `textSecondary`
+  - `outline`/`outlineVariant` → `border`
+  - `primary`/`secondary` (interactive) → `accent`
+  - `primaryContainer`/`secondaryContainer` (special) → `highlight`
+
+- **Implementation plan**
+  1) Define semantic tokens and ambient:
+     - `JournAIColors` data class with fields: `canvas`, `textPrimary`, `textSecondary`, `border`, `accent`, `highlight` (+ derived alphas if needed)
+     - `LocalJournAIColors` composition local, plus `rememberJournAIColors`
+  2) Provide a light palette and future dark palette in `Theme.kt` and bridge tokens to `MaterialTheme.colorScheme`.
+  3) Replace hardcoded colors with tokens across UI.
+  4) Add previews to validate tone and contrast.
+
+  Example (sketch):
+
+  ```kotlin
+  @Immutable
+  data class JournAIColors(
+      val canvas: Color,
+      val textPrimary: Color,
+      val textSecondary: Color,
+      val border: Color,
+      val accent: Color,
+      val highlight: Color,
+  )
+
+  val LightJournAIColors = JournAIColors(
+      canvas = Color(0xFFF9F9F6),
+      textPrimary = Color(0xFF4D6D57),
+      textSecondary = Color(0xFF7D9F80),
+      border = Color(0xFFD9E4DB),
+      accent = Color(0xFFA6CBB2),
+      highlight = Color(0xFFC9F2D0),
+  )
+
+  val LightColorScheme = lightColorScheme(
+      background = LightJournAIColors.canvas,
+      surface = LightJournAIColors.canvas,
+      onSurface = LightJournAIColors.textPrimary,
+      onSurfaceVariant = LightJournAIColors.textSecondary,
+      outline = LightJournAIColors.border,
+      primary = LightJournAIColors.accent,
+      secondary = LightJournAIColors.accent,
+      primaryContainer = LightJournAIColors.highlight,
+      secondaryContainer = LightJournAIColors.highlight,
+  )
+  ```
+
+- **Dark mode plan**
+  - Keep the same semantic token names; provide a dark palette (`DarkJournAIColors`) with perceptually adjusted tones for contrast in dark surfaces.
+  - Maintain AA/AAA contrast targets for text vs. background (primary ≥ 4.5:1, secondary ≥ 3:1 where applicable).
+  - Respect system dark theme; expose in Settings to override system.
+  - Consider optional dynamic color on Android 12+, but keep tokens as the single source of truth to ensure brand consistency.
+
+- **Usage guidance**
+  - Use `textPrimary` for all body and headline text; `textSecondary` for hints/metadata.
+  - Prefer `accent` for buttons, active states, interactive icons; use `highlight` for AI/special states and callouts.
+  - Use `border` for dividers, strokes, card borders; keep subtle thickness and opacity.
+
+---
+
 ### Milestones & Checklists
 
 #### 0) Project Bootstrap
@@ -115,9 +199,19 @@ Semantic search behavior:
 - Low similarity threshold (>= 0.05) to favor recall for chat context.
 - Lexical fallback used when vector search returns no results.
 
-#### 5) Privacy & Security (MVP)
+#### 5) Settings & Preferences
+- [x] Settings screen with navigation integration (bottom bar: Entries, Chat, Settings)
+- [x] Transcription mode toggle:
+  - [x] Local transcription (whisper.cpp) vs Internet transcription option
+  - [x] Store preference in `EncryptedSharedPreferences`
+- [x] Organization preferences:
+  - [x] Dedicated screen for customize organize button behavior
+  - [x] Options for tone, structure, length preferences for AI organization
+- [x] Blacklist/obfuscation settings UI:
+  - [x] User can add terms and replacement strings
+
+#### 6) Privacy & Security (MVP)
 - [ ] All data local; no analytics/telemetry
-- [ ] Blacklist/obfuscation settings UI: user can add terms and replacements
 - [ ] Redaction pipeline:
   - [ ] Build a compiled matcher (e.g., Aho‑Corasick or regex) from blacklist
   - [ ] Replace before sending to LLM or embeddings endpoint
@@ -125,7 +219,7 @@ Semantic search behavior:
 - [ ] Network hardening: timeouts, retries, error surfaces
 - [ ] Secure storage for settings/keys using `EncryptedSharedPreferences`
 
-#### 6) Server Proxy (Minimal)
+#### 7) Server Proxy (Minimal)
 - [x] Implement Node.js service (Express/Fastify) to avoid keys on device
 - [x] Endpoints:
   - [x] `POST /embed` → wraps OpenAI `text-embedding-3-small`
@@ -145,28 +239,28 @@ Hardening for production (to implement):
   - [ ] App: sign nonce per request (header) with private key
   - [ ] Server: verify DPoP signature against stored public key
 - [ ] Per-device rate limits & abuse controls
-  - [ ] Rate limit by deviceId from JWT; stricter burst/window
-  - [ ] Admin: revoke device tokens and view device activity
+  - [x] Rate limit by deviceId from JWT; stricter burst/window
+  - [x] Admin: revoke device tokens and view device activity
 - [ ] TLS and pinning
   - [ ] Enforce HTTPS/TLS 1.2+ on proxy; HSTS in fronting CDN
-  - [ ] App: certificate pinning in OkHttp
+  - [x] App: certificate pinning in OkHttp
 - [ ] Token refresh and retry
-  - [ ] App: on 401, refresh by re‑running attestation and `/register`
+  - [x] App: on 401, refresh by re‑running attestation and `/register`
   - [ ] Server: rotate signing keys, support key ID (kid)
 
-#### 7) Offline Embeddings (v2)
+#### 8) Offline Embeddings (v2)
 - [ ] Integrate ONNX Runtime Mobile
 - [ ] Download and validate local model (MiniLM L6 v2) with checksum
 - [ ] Compute embeddings on-device; fall back to remote when constrained
 - [ ] Verify cosine similarity parity within tolerance
 
-#### 8) Optional Sync (v2)
+#### 9) Optional Sync (v2)
 - [ ] E2E encrypted backup + multi-device sync
 - [ ] Key derivation (passphrase → KDF), per-device subkeys
 - [ ] Encrypted blob store (e.g., object storage); metadata minimization
 - [ ] Conflict resolution strategy (CRDT or last-write-wins for MVP)
 
-#### 9) QA, Performance, and Release Prep
+#### 10) QA, Performance, and Release Prep
 - [ ] Seed data/dev tools; test data reset
 - [ ] Cold/warm start profiling; WorkManager battery impact review
 - [ ] Large DB testing (e.g., 5k entries) search latency budget
@@ -207,17 +301,22 @@ FTS5: maintain a contentless FTS table or external content table tied to `Entry`
 - Provide a “view redacted text” toggle before send
 
 ### UI Structure
-- Bottom bar: `Create`, `Entries`, `Chat`
-- `Create`:
+- Bottom bar: `Entries`, `Chat`, `Settings`
+- `Entries`:
+  - List of saved entries with search and mood filtering
+  - Entry preview with date/time, content, and mood
+  - "Create Entry" button to access entry creation
+- `Create Entry` (accessible from Entries page):
   - Simplified daily entry editor: content input, mood picker, voice button in input
   - Tappable date header opens date picker to navigate to any date
   - Auto-loads existing entry for selected date (edit mode) or creates new entry
   - Date serves as title, one entry per day
-- `Entries`:
-  - List of saved entries with search and mood filtering
-  - Entry preview with date/time, content, and mood
 - `Chat`:
   - Global history and entry-specific threads
+- `Settings`:
+  - Toggle for local/internet transcription mode
+  - Organization preferences button (for customize organize button behavior)
+  - Blacklist/obfuscation settings
 
 ---
 
@@ -244,11 +343,12 @@ FTS5: maintain a contentless FTS table or external content table tied to `Entry`
 - [x] 2.1) Voice Recording — whisper.cpp integration with continuous streaming transcription, audio visualizer, and production-ready speech-to-text for journal entries
 - [ ] 3) Indexer
 - [x] 4) Chat — Basic chat UI with placeholder AI responses
-- [ ] 5) Privacy
-- [x] 6) Proxy — server running with `/health`, `/embed`, `/chat`, redaction, rate limiting, caching
-- [ ] 7) Offline Embeddings (v2)
-- [ ] 8) Sync (v2)
-- [ ] 9) QA & Release
+- [x] 5) Settings & Preferences — Navigation restructure and settings screens
+- [ ] 6) Privacy & Security
+- [x] 7) Proxy — server running with `/health`, `/embed`, `/chat`, redaction, rate limiting, caching
+- [ ] 8) Offline Embeddings (v2)
+- [ ] 9) Sync (v2)
+- [ ] 10) QA & Release
 
 Notes:
 - Rate limiting is enabled; basic auth/token pending.

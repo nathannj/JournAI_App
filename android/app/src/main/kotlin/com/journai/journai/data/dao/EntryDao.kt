@@ -25,8 +25,7 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE createdAt BETWEEN :startDate AND :endDate ORDER BY createdAt DESC")
     suspend fun getEntriesBetweenOnce(startDate: Instant, endDate: Instant): List<Entry>
     
-    @Query("SELECT * FROM entries WHERE mood = :mood ORDER BY createdAt DESC")
-    fun getEntriesByMood(mood: Int): Flow<List<Entry>>
+    // mood filter removed
     
     @Query("SELECT * FROM entries WHERE editedAt > :since ORDER BY editedAt ASC")
     suspend fun getEntriesEditedSince(since: Instant): List<Entry>

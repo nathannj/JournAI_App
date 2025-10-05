@@ -12,6 +12,9 @@ interface ProxyApi {
 
     @POST("/embed")
     suspend fun embed(@Body body: EmbedRequest): EmbedResponse
+
+    @POST("/register")
+    suspend fun register(@Body body: RegisterRequest): RegisterResponse
 }
 
 data class ChatMessage(
@@ -76,6 +79,19 @@ data class EmbedItem(
 data class EmbedResponse(
     val model: String,
     val data: List<EmbedItem>
+)
+
+// Registration
+data class RegisterRequest(
+    val attestation: String,
+    val devicePublicKeyJwk: Map<String, Any?>? = null
+)
+
+data class RegisterResponse(
+    val token: String,
+    val deviceId: String,
+    val kid: String? = null,
+    val expiresIn: Long? = null
 )
 
 
