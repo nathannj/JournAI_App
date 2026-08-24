@@ -47,7 +47,7 @@ class SpeechRecognitionManager @Inject constructor(
     private var processingRunnable: Runnable? = null
     private var processingRunnablePosted = false
     private var processingInFlight = false
-    private var committedText = "" // finalized and sent to UI
+    private var committedText = "" // normalized finalized text already sent to UI
     private var lastHypothesis = ""
     private var stableCount = 0
     
@@ -221,8 +221,12 @@ class SpeechRecognitionManager @Inject constructor(
                                     )
                                 )
                             }
-                            if (assembled.isNotEmpty()) assembled.append(' ')
-                            assembled.append(resp.text.orEmpty())
+                            val partText = resp.text.orEmpty().trim()
+                            val toAppend = removeOverlapSuffixPrefix(assembled.toString(), partText)
+                            if (toAppend.isNotBlank()) {
+                                if (assembled.isNotEmpty()) assembled.append(' ')
+                                assembled.append(toAppend)
+                            }
                         }
                         finalText = assembled.toString()
                     } else {
@@ -268,17 +272,25 @@ class SpeechRecognitionManager @Inject constructor(
                     while (isNativeReady) {
                         val chunk = try { WhisperBridge.nativeProcess(false, threads) } catch (_: Throwable) { "" }
                         if (chunk.isBlank()) break
-                        if (builder.isNotEmpty()) builder.append(' ')
-                        builder.append(chunk.trim())
+                        val trimmed = chunk.trim()
+                        val toAppend = removeOverlapSuffixPrefix(builder.toString(), trimmed)
+                        if (toAppend.isNotBlank()) {
+                            if (builder.isNotEmpty()) builder.append(' ')
+                            builder.append(toAppend)
+                        }
                     }
                     finalText = builder.toString()
                 }
             } catch (_: Throwable) {
             }
             mainHandler.post {
-                if (finalText.isNotBlank()) {
-                    _finalText.value = finalText
-                    _recognitionState.value = _recognitionState.value.copy(lastTranscription = finalText)
+                val squashed = squashExactDuplication(finalText)
+                val normalized = normalizeTranscription(squashed)
+                if (normalized.isNotBlank() && normalized != committedText) {
+                    committedText = normalized
+                    val emitText = squashed.trim()
+                    _finalText.value = emitText
+                    updateRecognitionState(emitText)
                     _finalText.value = ""
                 }
                 isTranscribing = false
@@ -333,12 +345,8 @@ class SpeechRecognitionManager @Inject constructor(
         while (isRecording) {
             val read = localRecord.read(buffer, 0, buffer.size)
             if (read > 0) {
-                // Store raw PCM for cloud transcription
+                // Store raw PCM for transcription (cloud or local). Do not feed native during capture.
                 pcmBuffer?.write(buffer.toByteArray(read))
-                // Feed native for offline fallback only if initialized
-                if (isNativeReady) {
-                    WhisperBridge.nativeFeedPcm(buffer, read)
-                }
                 val level = mapRmsToLevel(computeRms(buffer, read))
                 // More responsive EMA to better show dips between words
                 audioLevelEma = (audioLevelEma * 0.3f) + (level * 0.7f)
@@ -404,6 +412,31 @@ class SpeechRecognitionManager @Inject constructor(
         val norm = ((db - minDb) / (maxDb - minDb)).coerceIn(0.0, 1.0)
         val shaped = java.lang.Math.pow(norm, 1.6)
         return shaped.toFloat()
+    }
+
+    private fun normalizeTranscription(s: String): String {
+        return s.trim().replace(Regex("\\s+"), " ").lowercase()
+    }
+
+    private fun updateRecognitionState(text: String) {
+        _recognitionState.value = _recognitionState.value.copy(lastTranscription = text)
+    }
+
+    private fun squashExactDuplication(s: String): String {
+        val t = s.trim()
+        if (t.length < 20) return s
+        val mid = t.length / 2
+        // Try exact half or off-by-one split to accommodate odd lengths
+        val a1 = t.substring(0, mid).trim()
+        val b1 = t.substring(mid).trim()
+        val a2 = if (mid + 1 <= t.length) t.substring(0, mid + 1).trim() else a1
+        val b2 = if (mid + 1 <= t.length) t.substring(mid + 1).trim() else b1
+        val n = { x: String -> x.replace(Regex("\\s+"), " ").lowercase() }
+        return when {
+            n(a1) == n(b1) -> a1
+            n(a2) == n(b2) -> a2
+            else -> s
+        }
     }
 
     private fun removeOverlapSuffixPrefix(base: String, addition: String): String {

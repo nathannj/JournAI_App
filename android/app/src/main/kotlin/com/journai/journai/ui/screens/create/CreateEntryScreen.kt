@@ -5,11 +5,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -18,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,7 +39,9 @@ import kotlinx.datetime.LocalDate
 @Composable
 fun CreateEntryScreen(
     viewModel: CreateEntryViewModel = hiltViewModel(),
-    initialDateMillis: Long? = null
+    initialDateMillis: Long? = null,
+    onBack: (() -> Unit)? = null,
+    onSwipeToChat: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
@@ -67,11 +72,27 @@ fun CreateEntryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
+            .pointerInput(onSwipeToChat) {
+                if (onSwipeToChat != null) {
+                    detectHorizontalDragGestures { _, dragAmount ->
+                        if (dragAmount < -40f) {
+                            onSwipeToChat()
+                        }
+                    }
+                }
+            }
             .verticalScroll(rememberScrollState())
             .imePadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Simple back arrow at the top
+        onBack?.let { back ->
+            IconButton(onClick = back) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+        }
         // Date header - tappable
         Card(
             onClick = { showDatePicker = true },
@@ -339,7 +360,7 @@ fun CreateEntryScreen(
         Button(
             onClick = { viewModel.saveEntry() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isSaving && uiState.content.isNotBlank()
+            enabled = !uiState.isSaving && uiState.content.isNotBlank() && uiState.hasUnsavedChanges
         ) {
             if (uiState.isSaving) {
                 CircularProgressIndicator(modifier = Modifier.size(16.dp))
@@ -348,12 +369,12 @@ fun CreateEntryScreen(
             Text(
                 when {
                     uiState.isSaving -> "Saving..."
-                    uiState.isEditing -> "Update Entry"
-                    else -> "Save Entry"
+                    uiState.isEditing -> if (uiState.hasUnsavedChanges) "Update Entry" else "Saved"
+                    else -> if (uiState.hasUnsavedChanges) "Save Entry" else "Saved"
                 }
             )
         }
-        
+
         // Error message
         uiState.error?.let { error ->
             Card(

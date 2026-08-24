@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -55,9 +56,6 @@ fun JournAINavigation() {
                     selected = pagerState.currentPage == 0,
                     onClick = {
                         scope.launch {
-                            if (navController.currentDestination?.route != "root") {
-                                navController.popBackStack("root", false)
-                            }
                             pagerState.animateScrollToPage(0)
                         }
                     }
@@ -69,9 +67,6 @@ fun JournAINavigation() {
                     selected = pagerState.currentPage == 1,
                     onClick = {
                         scope.launch {
-                            if (navController.currentDestination?.route != "root") {
-                                navController.popBackStack("root", false)
-                            }
                             pagerState.animateScrollToPage(1)
                         }
                     }
@@ -83,9 +78,6 @@ fun JournAINavigation() {
                     selected = pagerState.currentPage == 2,
                     onClick = {
                         scope.launch {
-                            if (navController.currentDestination?.route != "root") {
-                                navController.popBackStack("root", false)
-                            }
                             pagerState.animateScrollToPage(2)
                         }
                     }
@@ -96,32 +88,25 @@ fun JournAINavigation() {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         val isOverlayActive = currentRoute != "root"
-
-        LaunchedEffect(pagerState.currentPage) {
-            if (navController.currentDestination?.route != "root") {
-                navController.popBackStack("root", false)
-            }
-        }
+        val showOverlay = isOverlayActive && pagerState.currentPage == 0
 
         Box(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            if (!isOverlayActive) {
-                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    when (page) {
-                        0 -> EntriesScreen(navController = navController)
-                        1 -> ChatScreen()
-                        else -> SettingsScreen(navController = navController)
-                    }
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                when (page) {
+                    0 -> EntriesScreen(navController = navController)
+                    1 -> ChatScreen()
+                    else -> SettingsScreen(navController = navController)
                 }
             }
 
             NavHost(
                 navController = navController,
                 startDestination = "root",
-                modifier = Modifier.fillMaxSize()
+                modifier = if (showOverlay) Modifier.fillMaxSize() else Modifier.size(0.dp)
             ) {
                 composable("root") { }
                 composable(
@@ -135,7 +120,13 @@ fun JournAINavigation() {
                 ) { backStackEntry ->
                     val millis = backStackEntry.arguments?.getLong("dateMillis") ?: -1L
                     val initialDateMillis = if (millis > 0L) millis else null
-                    CreateEntryScreen(initialDateMillis = initialDateMillis)
+                    CreateEntryScreen(
+                        initialDateMillis = initialDateMillis,
+                        onBack = { navController.popBackStack() },
+                        onSwipeToChat = {
+                            scope.launch { pagerState.animateScrollToPage(1) }
+                        }
+                    )
                 }
                 composable("organization_preferences") {
                     OrganizationPreferencesScreen(navController = navController)

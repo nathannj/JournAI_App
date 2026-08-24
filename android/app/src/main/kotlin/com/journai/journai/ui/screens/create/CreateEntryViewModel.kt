@@ -32,6 +32,7 @@ class CreateEntryViewModel @Inject constructor(
     private val maxHistorySize: Int = 100
     private var isContentChangeInternal: Boolean = false
     private var contentHistorySizeAtOrganize: Int? = null
+    private var lastAppliedTranscriptNormalized: String? = null
     
     init {
         loadEntryForDate(Clock.System.now())
@@ -40,16 +41,27 @@ class CreateEntryViewModel @Inject constructor(
         viewModelScope.launch {
             speechRecognitionManager.finalText.collect { finalText ->
                 android.util.Log.d("SpeechDebug", "finalText received: '$finalText'")
-                if (finalText.isNotEmpty()) {
+                val incoming = finalText.trim()
+                if (incoming.isNotEmpty()) {
                     val current = _uiState.value.content
-                    // Idempotency guard: if current already ends with finalText (or overlap-adjusted), skip
-                    val toAppend = removeOverlapSuffixPrefix(current, finalText)
+                    val normalizedCurrent = current.trim().replace(Regex("\\s+"), " ")
+                    val normalizedIncoming = incoming.replace(Regex("\\s+"), " ")
+                    val normalizedIncomingKey = normalizeTranscript(incoming)
+                    if (lastAppliedTranscriptNormalized != null &&
+                        normalizedIncomingKey.equals(lastAppliedTranscriptNormalized, ignoreCase = true)) {
+                        android.util.Log.d("SpeechDebug", "Skipping append; same as last applied transcript")
+                        return@collect
+                    }
+                    val alreadyHas = normalizedCurrent.endsWith(normalizedIncoming, ignoreCase = true)
+                    val toAppend = if (alreadyHas) "" else removeOverlapSuffixPrefix(current, incoming)
                     if (toAppend.isNotBlank()) {
-                        val newContent = if (current.isBlank()) toAppend else "$current $toAppend"
-                        android.util.Log.d("SpeechDebug", "current: '$current', toAppend: '$toAppend', newContent: '$newContent'")
+                        val spacer = if (current.isBlank() || current.endsWith(" ")) "" else " "
+                        val newContent = "$current$spacer$toAppend"
+                        android.util.Log.d("SpeechDebug", "Appending; newContent length=${newContent.length}")
                         _uiState.value = _uiState.value.copy(content = newContent)
+                        lastAppliedTranscriptNormalized = normalizedIncomingKey.lowercase()
                     } else {
-                        android.util.Log.d("SpeechDebug", "Skipping append; toAppend blank after overlap removal")
+                        android.util.Log.d("SpeechDebug", "Skipping append; deduped or overlap removed")
                     }
                 }
             }
@@ -72,6 +84,9 @@ class CreateEntryViewModel @Inject constructor(
                     recordingStartMs = speechState.recordingStartMs,
                     error = speechState.error
                 )
+                if (speechState.isRecording) {
+                    lastAppliedTranscriptNormalized = null
+                }
             }
         }
 
@@ -107,6 +122,8 @@ class CreateEntryViewModel @Inject constructor(
                         selectedDate = date,
                         entryDate = existingEntry.createdAt, // Use the actual entry's date
                         content = existingEntry.richBody,
+                        lastSavedContent = existingEntry.richBody,
+                        hasUnsavedChanges = false,
                         isEditing = true,
                         existingEntryId = existingEntry.id,
                         isLoading = false
@@ -116,6 +133,8 @@ class CreateEntryViewModel @Inject constructor(
                         selectedDate = date,
                         entryDate = date, // For new entries, use the selected date
                         content = "",
+                        lastSavedContent = "",
+                        hasUnsavedChanges = false,
                         isEditing = false,
                         existingEntryId = null,
                         isLoading = false
@@ -140,9 +159,12 @@ class CreateEntryViewModel @Inject constructor(
                 }
             }
         }
-        _uiState.value = _uiState.value.copy(
+        val newState = _uiState.value.copy(
             content = content,
             canUndoContent = contentHistory.isNotEmpty()
+        )
+        _uiState.value = newState.copy(
+            hasUnsavedChanges = newState.content != newState.lastSavedContent
         )
     }
     
@@ -185,7 +207,9 @@ class CreateEntryViewModel @Inject constructor(
                     isSaving = false,
                     isEditing = true,
                     existingEntryId = entry.id,
-                    entryDate = entry.createdAt
+                    entryDate = entry.createdAt,
+                    lastSavedContent = entry.richBody,
+                    hasUnsavedChanges = false
                 )
                 
             } catch (e: Exception) {
@@ -226,10 +250,13 @@ class CreateEntryViewModel @Inject constructor(
         val preview = _uiState.value.organizePreview ?: return
         isContentChangeInternal = true
         try {
-            _uiState.value = _uiState.value.copy(
+            val updated = _uiState.value.copy(
                 content = preview,
                 organizePreview = null,
                 canUndoOrganize = true
+            )
+            _uiState.value = updated.copy(
+                hasUnsavedChanges = updated.content != updated.lastSavedContent
             )
             // Mark the boundary where organize was applied so we undo typing first
             contentHistorySizeAtOrganize = contentHistory.size
@@ -246,10 +273,13 @@ class CreateEntryViewModel @Inject constructor(
         val original = _uiState.value.lastOriginalBeforeOrganize ?: return
         isContentChangeInternal = true
         try {
-            _uiState.value = _uiState.value.copy(
+            val updated = _uiState.value.copy(
                 content = original,
                 canUndoOrganize = false,
                 lastOriginalBeforeOrganize = null
+            )
+            _uiState.value = updated.copy(
+                hasUnsavedChanges = updated.content != updated.lastSavedContent
             )
             // Drop any history entries that were added after organize was applied
             val marker = contentHistorySizeAtOrganize
@@ -287,13 +317,20 @@ class CreateEntryViewModel @Inject constructor(
         val previous = contentHistory.removeLast()
         isContentChangeInternal = true
         try {
-            _uiState.value = _uiState.value.copy(
+            val updated = _uiState.value.copy(
                 content = previous,
                 canUndoContent = contentHistory.isNotEmpty()
+            )
+            _uiState.value = updated.copy(
+                hasUnsavedChanges = updated.content != updated.lastSavedContent
             )
         } finally {
             isContentChangeInternal = false
         }
+    }
+
+    private fun normalizeTranscript(s: String): String {
+        return s.trim().replace(Regex("\\s+"), " ")
     }
 
     private fun removeOverlapSuffixPrefix(base: String, addition: String): String {
@@ -335,6 +372,8 @@ data class CreateEntryUiState(
     val selectedDate: kotlinx.datetime.Instant = Clock.System.now(),
     val entryDate: kotlinx.datetime.Instant = Clock.System.now(), // The actual date of the entry being edited
     val content: String = "",
+    val lastSavedContent: String = "",
+    val hasUnsavedChanges: Boolean = false,
     val partialPreview: String = "",
     val audioLevel: Float = 0f,
     val isSaving: Boolean = false,
