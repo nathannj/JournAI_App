@@ -9,6 +9,7 @@ export function getConfig() {
   const openaiApiKey = process.env.OPENAI_API_KEY;
   const embedModel = getEnv('OPENAI_EMBED_MODEL', 'text-embedding-3-small');
   const chatModel = getEnv('OPENAI_CHAT_MODEL', 'gpt-5-nano');
+  const transcribeModel = getEnv('OPENAI_TRANSCRIBE_MODEL', 'gpt-transcribe');
   const rateLimitMax = Number(getEnv('RATE_LIMIT_MAX', 60));
   const rateLimitTimeWindow = getEnv('RATE_LIMIT_TIME_WINDOW', '1 minute');
   const authToken = getEnv('PROXY_AUTH_TOKEN', null);
@@ -40,8 +41,8 @@ export function getConfig() {
       apiKey: openaiApiKey,
       embedModel,
       chatModel,
+      transcribeModel,
     },
   };
 }
-
 

@@ -31,7 +31,7 @@ export default async function registerTranscribeRoutes(app, config) {
     }
   }, async (req, reply) => {
     const { audioBase64, chunks, sampleRate, language } = req.body;
-    const model = config.openai.transcribeModel || 'gpt-4o-mini-transcribe';
+    const model = config.openai.transcribeModel;
 
     const transcribeOne = async (base64, index) => {
       const pcm = Buffer.from(base64, 'base64');
