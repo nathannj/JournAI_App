@@ -104,13 +104,18 @@ object NetworkModule {
         securePrefs: SecurePrefs,
         authManager: Provider<AuthManager>
     ): Interceptor = Interceptor { chain ->
+        val originalRequest = chain.request()
+        if (originalRequest.url.encodedPath == "/register") {
+            return@Interceptor chain.proceed(originalRequest)
+        }
+
         var token = securePrefs.getJwt() ?: runBlocking { authManager.get().ensureToken() }
-        var req = chain.request().newBuilder().header("Authorization", "Bearer $token").build()
+        var req = originalRequest.newBuilder().header("Authorization", "Bearer $token").build()
         var resp = chain.proceed(req)
         if (resp.code == 401) {
             resp.close()
             token = runBlocking { authManager.get().register() }
-            req = chain.request().newBuilder().header("Authorization", "Bearer $token").build()
+            req = originalRequest.newBuilder().header("Authorization", "Bearer $token").build()
             resp = chain.proceed(req)
         }
         resp
