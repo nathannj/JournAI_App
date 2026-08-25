@@ -88,7 +88,9 @@ fun JournAINavigation() {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
         val isOverlayActive = currentRoute != "root"
-        val showOverlay = isOverlayActive && pagerState.currentPage == 0
+        // Nested destinations must stay visible regardless of which main pager tab opened them.
+        // The previous page check made settings sub-screens render into a zero-sized NavHost.
+        val showOverlay = isOverlayActive
 
         Box(
             modifier = Modifier

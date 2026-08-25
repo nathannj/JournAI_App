@@ -4,7 +4,7 @@ import com.journai.journai.network.ChatMessage
 import com.journai.journai.network.ChatRequest
 import com.journai.journai.network.ProxyApi
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.util.Log
@@ -24,12 +24,16 @@ You are a planner for a local journal assistant. Decide which LOCAL tools to run
 Return ONLY a compact JSON object (no prose) matching this schema:
 {
   "tools": [
+    {"tool": "semanticSearch", "params": {"query": "<string>", "k": 8}},
     {"tool": "timelineSummary", "params": {"days": 7}},
-    {"tool": "semanticSearch", "params": {"query": "<string>", "k": 5}},
+    {"tool": "timelineSummaryRange", "params": {"start": "<ISO-8601>", "end": "<ISO-8601>"}},
+    {"tool": "entriesSummaryRange", "params": {"start": "<ISO-8601>", "end": "<ISO-8601>", "k": 10}},
     {"tool": "minePatterns", "params": {"windowDays": 30}}
   ]
 }
-Prefer relevant tools; omit irrelevant ones.
+Use semanticSearch for questions about specific events, people, topics, or memories.
+Use timelineSummary for recent activity and minePatterns for recurring themes.
+Return valid JSON only; never wrap it in Markdown fences.
 """.trimIndent()
 
         val planMessages = listOf(
@@ -44,6 +48,35 @@ Prefer relevant tools; omit irrelevant ones.
 
         val contextSb = StringBuilder()
         val seenEntries = mutableSetOf<String>()
+
+        // Always perform a local retrieval pass. The model planner is useful for
+        // choosing additional tools, but it must not be able to suppress the
+        // basic journal lookup when its JSON is malformed or unavailable.
+        val baselineSearch = runCatching { tools.semanticSearch(userQuery, 8) }.getOrDefault(emptyList())
+        if (baselineSearch.isNotEmpty()) {
+            contextSb.append("\n\n[Tool: semanticSearch]\n")
+            for (c in baselineSearch) {
+                if (seenEntries.add(c.entryId)) {
+                    contextSb.append("- Entry ").append(c.entryId)
+                        .append(" (").append(c.createdAt).append("): ")
+                        .append(c.snippet.orEmpty()).append('\n')
+                }
+            }
+        }
+
+        val lowerQuery = userQuery.lowercase()
+        if (listOf("recent", "today", "yesterday", "this week", "last week", "timeline", "what happened", "when did")
+                .any { lowerQuery.contains(it) }) {
+            val days = if (lowerQuery.contains("month")) 30 else 7
+            val summary = runCatching { tools.timelineSummary(days) }.getOrDefault("")
+            if (summary.isNotBlank()) contextSb.append("\n\n[Tool: timelineSummary]\n").append(summary)
+        }
+        if (listOf("pattern", "recurring", "often", "trend", "frequency", "habit")
+                .any { lowerQuery.contains(it) }) {
+            val patterns = runCatching { tools.minePatterns(30) }.getOrDefault("")
+            if (patterns.isNotBlank()) contextSb.append("\n\n[Tool: minePatterns]\n").append(patterns)
+        }
+
         var currentPlan = planStr
         var iterations = 0
         while (iterations < 2) {
@@ -56,7 +89,7 @@ Prefer relevant tools; omit irrelevant ones.
             for (step in plan.tools) {
                 when (step.tool) {
                         "timelineSummary" -> {
-                            val days = step.params?.get("days")?.toIntSafe() ?: 7
+                            val days = step.params?.days ?: 7
                             val summary = runCatching { tools.timelineSummary(days) }.getOrDefault("")
                             if (summary.isNotBlank()) {
                                 contextSb.append("\n\n[Tool: timelineSummary]\n").append(summary)
@@ -64,8 +97,8 @@ Prefer relevant tools; omit irrelevant ones.
                             }
                         }
                         "semanticSearch" -> {
-                            val q = (step.params?.get("query") as? String)?.ifBlank { userQuery } ?: userQuery
-                            val k = step.params?.get("k")?.toIntSafe() ?: 7
+                            val q = step.params?.query?.ifBlank { userQuery } ?: userQuery
+                            val k = step.params?.k ?: 8
                             val sem = runCatching { tools.semanticSearch(q, k) }.getOrDefault(emptyList())
                             if (sem.isNotEmpty()) {
                                 contextSb.append("\n\n[Tool: semanticSearch]\n")
@@ -78,7 +111,7 @@ Prefer relevant tools; omit irrelevant ones.
                             }
                         }
                         "minePatterns" -> {
-                            val w = step.params?.get("windowDays")?.toIntSafe() ?: 30
+                            val w = step.params?.windowDays ?: 30
                             val pat = runCatching { tools.minePatterns(w) }.getOrDefault("")
                             if (pat.isNotBlank()) {
                                 contextSb.append("\n\n[Tool: minePatterns]\n").append(pat)
@@ -86,8 +119,8 @@ Prefer relevant tools; omit irrelevant ones.
                             }
                         }
                         "timelineSummaryRange" -> {
-                            val start = (step.params?.get("start") as? String)
-                            val end = (step.params?.get("end") as? String)
+                            val start = step.params?.start
+                            val end = step.params?.end
                             if (!start.isNullOrBlank() && !end.isNullOrBlank()) {
                                 runCatching {
                                     val s = kotlinx.datetime.Instant.parse(start)
@@ -96,6 +129,21 @@ Prefer relevant tools; omit irrelevant ones.
                                     if (summary.isNotBlank()) {
                                         contextSb.append("\n\n[Tool: timelineSummaryRange]\n").append(summary)
                                         newSignals.append("\nTR: ").append(summary.take(200))
+                                    }
+                                }
+                            }
+                        }
+                        "entriesSummaryRange" -> {
+                            val start = step.params?.start
+                            val end = step.params?.end
+                            if (!start.isNullOrBlank() && !end.isNullOrBlank()) {
+                                runCatching {
+                                    val s = kotlinx.datetime.Instant.parse(start)
+                                    val e = kotlinx.datetime.Instant.parse(end)
+                                    val summary = tools.entriesSummaryRange(s, e, step.params.k ?: 10)
+                                    if (summary.isNotBlank()) {
+                                        contextSb.append("\n\n[Tool: entriesSummaryRange]\n").append(summary)
+                                        newSignals.append("\nER: ").append(summary.take(200))
                                     }
                                 }
                             }
@@ -147,16 +195,20 @@ Prefer relevant tools; omit irrelevant ones.
 
 private const val TAG = "AgentOrchestrator"
 
+@JsonClass(generateAdapter = true)
 data class AgentPlan(val tools: List<AgentTool> = emptyList())
-data class AgentTool(val tool: String, val params: Map<String, Any>? = null)
 
-private fun Any.toIntSafe(): Int? = when (this) {
-    is Int -> this
-    is Long -> this.toInt()
-    is Double -> this.toInt()
-    is Float -> this.toInt()
-    is String -> this.toIntOrNull()
-    else -> null
-}
+@JsonClass(generateAdapter = true)
+data class AgentTool(val tool: String, val params: AgentToolParams? = null)
+
+@JsonClass(generateAdapter = true)
+data class AgentToolParams(
+    val query: String? = null,
+    val k: Int? = null,
+    val days: Int? = null,
+    val windowDays: Int? = null,
+    val start: String? = null,
+    val end: String? = null
+)
 
 

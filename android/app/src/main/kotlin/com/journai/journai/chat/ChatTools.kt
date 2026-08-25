@@ -16,6 +16,7 @@ private const val TAG = "ChatTools"
 data class SemanticChunk(
     val entryId: String,
     val snippet: String? = null,
+    val createdAt: Instant,
     val score: Float
 )
 
@@ -28,15 +29,31 @@ class ChatTools @Inject constructor(
 ) {
     suspend fun semanticSearch(query: String, k: Int = 5): List<SemanticChunk> = withContext(Dispatchers.IO) {
         Log.d(TAG, "ChatTools.semanticSearch: q='${query.take(80)}' k=$k")
-        var entries = searchRepo.search(query, topK = k)
+        var entries = runCatching { searchRepo.search(query, topK = k) }.getOrDefault(emptyList())
         if (entries.isEmpty()) {
             // Fallback: lexical search of entries if embeddings not present yet
-            val lex = runCatching { entryDao.searchEntriesSimpleOnce(query) }.getOrDefault(emptyList())
-            entries = lex.take(k)
+            val terms = buildList {
+                add(query)
+                addAll(query.split(Regex("[^\\p{L}\\p{N}]+")))
+            }.map(String::trim).filter { it.length >= 3 }.distinct().take(6)
+            val byId = linkedMapOf<String, com.journai.journai.data.entity.Entry>()
+            for (term in terms) {
+                runCatching { entryDao.searchEntriesSimpleOnce(term) }
+                    .getOrDefault(emptyList())
+                    .forEach { byId.putIfAbsent(it.id, it) }
+                if (byId.size >= k) break
+            }
+            entries = byId.values.take(k)
             Log.d(TAG, "ChatTools.semanticSearch: lexicalFallback=${entries.size}")
         }
-        // For MVP: return entry IDs with placeholder snippet
-        val out = entries.map { SemanticChunk(entryId = it.id, snippet = it.richBody.take(200), score = 0f) }
+        val out = entries.map {
+            SemanticChunk(
+                entryId = it.id,
+                snippet = it.richBody.replace('\n', ' ').take(500),
+                createdAt = it.createdAt,
+                score = 0f
+            )
+        }
         Log.d(TAG, "ChatTools.semanticSearch: results=${out.size}")
         out
     }
@@ -101,8 +118,31 @@ class ChatTools @Inject constructor(
     }
 
     suspend fun minePatterns(windowDays: Int = 30): String = withContext(Dispatchers.IO) {
-        // Placeholder: later compute frequent entities/tags and common moods
-        ""
+        val end = Clock.System.now()
+        val start = end.minus(windowDays.toLong() * 24L * 60L * 60L, DateTimeUnit.SECOND)
+        val entries = runCatching { entryDao.getEntriesBetweenOnce(start, end) }.getOrDefault(emptyList())
+        if (entries.isEmpty()) return@withContext "No journal entries found in the last " + windowDays + " days."
+
+        val stopWords = setOf(
+            "about", "after", "again", "before", "could", "from", "have", "into", "just",
+            "more", "that", "their", "there", "these", "they", "this", "today", "very",
+            "what", "when", "where", "which", "with", "would", "your"
+        )
+        val counts = entries.asSequence()
+            .flatMap { it.richBody.lowercase().split(Regex("[^\\p{L}\\p{N}]+")) }
+            .filter { it.length >= 4 && it !in stopWords }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .take(8)
+        if (counts.isEmpty()) return@withContext "No recurring word themes found in the last " + windowDays + " days."
+        buildString {
+            append("Recurring themes in the last ").append(windowDays).append(" days:\n")
+            counts.forEach {
+                append("- ").append(it.key).append(" (mentioned ").append(it.value).append(" times)\n")
+            }
+        }
     }
 
     suspend fun weeklyReview(): String = withContext(Dispatchers.IO) {
