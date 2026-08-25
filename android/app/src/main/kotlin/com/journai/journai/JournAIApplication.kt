@@ -7,6 +7,7 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import java.util.concurrent.TimeUnit
 import com.journai.journai.work.IndexWorker
+import com.journai.journai.diagnostics.CrashLogStore
 
 @HiltAndroidApp
 class JournAIApplication : Application(), Configuration.Provider {
@@ -21,6 +22,8 @@ class JournAIApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLogStore.install(this)
+        CrashLogStore.recordEvent("app.started")
         scheduleIndexer()
     }
 

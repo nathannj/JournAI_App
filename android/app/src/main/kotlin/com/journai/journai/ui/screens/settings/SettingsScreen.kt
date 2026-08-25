@@ -10,11 +10,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import androidx.core.content.FileProvider
+import android.content.Intent
+import com.journai.journai.BuildConfig
+import com.journai.journai.diagnostics.CrashLogStore
 import com.journai.journai.R
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +29,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    var crashLogFile by remember { mutableStateOf(CrashLogStore.latestCrashFile(context)) }
     
     Column(
         modifier = Modifier
@@ -35,6 +42,12 @@ fun SettingsScreen(
             text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 24.dp)
+        )
+        Text(
+            text = "Version v${BuildConfig.VERSION_NAME}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
         
         LazyColumn(
@@ -170,6 +183,48 @@ fun SettingsScreen(
                             contentDescription = "Open",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Diagnostics",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = if (crashLogFile != null) {
+                                "A crash report is available to share."
+                            } else {
+                                "Crash reports will be saved on this phone if the app closes unexpectedly."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)
+                        )
+                        Button(
+                            enabled = crashLogFile != null,
+                            onClick = {
+                                val file = crashLogFile ?: return@Button
+                                val uri = FileProvider.getUriForFile(
+                                    context,
+                                    "${context.packageName}.fileprovider",
+                                    file
+                                )
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(shareIntent, "Share crash report")
+                                )
+                            }
+                        ) {
+                            Text("Share crash report")
+                        }
                     }
                 }
             }

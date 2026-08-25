@@ -1,3 +1,12 @@
+import java.io.File
+import java.util.Properties
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -5,6 +14,36 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.kotlin.parcelize)
+}
+
+val appVersionFile = rootProject.file("version.properties")
+val appVersionProperties = Properties().apply { appVersionFile.inputStream().use { load(it) } }
+val appVersionCode = appVersionProperties.getProperty("VERSION_CODE").toInt()
+val appVersionName = appVersionProperties.getProperty("VERSION_NAME")
+
+abstract class IncrementAppVersionTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val versionFile: RegularFileProperty
+
+    @TaskAction
+    fun increment() {
+        val file = versionFile.get().asFile
+        val properties = Properties()
+        file.inputStream().use { properties.load(it) }
+        val currentCode = properties.getProperty("VERSION_CODE").toInt()
+        val currentName = properties.getProperty("VERSION_NAME")
+        val nameParts = currentName.split('.')
+        val nextPatch = nameParts.last().toIntOrNull()?.plus(1) ?: (currentCode + 1)
+        val nextName = if (nameParts.size >= 3) {
+            nameParts.dropLast(1).joinToString(".") + "." + nextPatch
+        } else {
+            "0.0.$nextPatch"
+        }
+        properties.setProperty("VERSION_CODE", (currentCode + 1).toString())
+        properties.setProperty("VERSION_NAME", nextName)
+        file.outputStream().use { properties.store(it, "JournAI app version") }
+    }
 }
 
 android {
@@ -15,8 +54,8 @@ android {
         applicationId = "com.journai.journai"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -80,6 +119,12 @@ android {
         }
     }
 }
+
+val incrementVersionTask = tasks.register<IncrementAppVersionTask>("incrementAppVersion") {
+    versionFile.set(appVersionFile)
+}
+tasks.matching { it.name == "assembleDebug" || it.name == "assembleRelease" }
+    .configureEach { finalizedBy(incrementVersionTask) }
 
 dependencies {
     // Compose BOM

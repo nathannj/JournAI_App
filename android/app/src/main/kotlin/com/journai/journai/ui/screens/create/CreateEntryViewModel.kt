@@ -228,6 +228,7 @@ class CreateEntryViewModel @Inject constructor(
     fun organise() {
         val current = _uiState.value
         if (current.isOrganizing || current.content.isBlank()) return
+        com.journai.journai.diagnostics.CrashLogStore.recordEvent("organize.start")
         viewModelScope.launch {
             try {
                 android.util.Log.d("OrganizeVM", "Starting organise; length=" + current.content.length)
@@ -240,6 +241,7 @@ class CreateEntryViewModel @Inject constructor(
                     lastOriginalBeforeOrganize = current.content
                 )
             } catch (t: Throwable) {
+                com.journai.journai.diagnostics.CrashLogStore.recordEvent("organize.error ${t::class.java.name}: ${t.message}")
                 android.util.Log.e("OrganizeVM", "Organise failed", t)
                 _uiState.value = _uiState.value.copy(isOrganizing = false, error = t.message ?: "Failed to organise")
             }

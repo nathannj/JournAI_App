@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.journai.journai.diagnostics.CrashLogStore
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -31,6 +32,7 @@ class ChatViewModel @Inject constructor(
 
     fun sendMessage(message: String) {
         if (message.isBlank()) return
+        CrashLogStore.recordEvent("chat.send")
         
         viewModelScope.launch {
             try {
@@ -76,6 +78,7 @@ class ChatViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
+                CrashLogStore.recordEvent("chat.error ${e::class.java.name}: ${e.message}")
                 _uiState.value = _uiState.value.copy(
                     isGeneratingResponse = false,
                     error = e.message ?: "Failed to send message"
