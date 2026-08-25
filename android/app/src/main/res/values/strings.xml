@@ -24,7 +24,7 @@
     <string name="permission_camera">Camera permission needed to take photos</string>
     <string name="permission_audio">Microphone permission needed to record voice notes</string>
     <string name="permission_storage">Storage permission needed to access photos</string>
-    <string name="proxy_base_url">http://192.168.0.195:8787</string>
+    <string name="proxy_base_url">http://100.70.15.127:8787/</string>
     <string name="proxy_base_url_prod">https://proxy.example.com</string>
     <string name="proxy_prod_host">proxy.example.com</string>
     <!-- Replace with real cert pin: sha256/<base64-of-pubkey> -->
