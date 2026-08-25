@@ -22,6 +22,7 @@ class AuthManager(
     suspend fun register(): String = withContext(Dispatchers.IO) {
         val nonce = sha256Hex(System.currentTimeMillis().toString())
         val integrity = integrityService.getIntegrityToken(nonce)
+        keyManager.ensureKeypair()
         val jwk = keyManager.getPublicJwk()
         val resp = api.register(RegisterRequest(attestation = integrity, devicePublicKeyJwk = jwk))
         securePrefs.setJwt(resp.token)
